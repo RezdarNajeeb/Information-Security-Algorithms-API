@@ -13,8 +13,13 @@ def generate_key():
 
 @router.post("/encrypt")
 def encrypt(request: DESRequest):
-    """Encrypt text using DES algorithm."""
+    """Encrypt binary text using DES algorithm.
+    The input must be a 64-bit binary string (0s and 1s)."""
     try:
+        # Validate input is binary
+        if len(request.text) != 64 or not all(c in '01' for c in request.text):
+            raise ValueError("Input must be exactly 64 binary bits (0s and 1s only)")
+
         # Use provided key or generate a new one
         key = request.key if request.key else generate_des_key()
 
@@ -32,11 +37,19 @@ def encrypt(request: DESRequest):
 
 @router.post("/decrypt")
 def decrypt(request: DESRequest):
-    """Decrypt text using DES algorithm."""
-    if not request.key:
-        raise HTTPException(status_code=400, detail="Key is required for decryption")
-
+    """Decrypt binary ciphertext using DES algorithm.
+    Both input and key must be 64-bit binary strings (0s and 1s)."""
     try:
+        # Validate input is binary
+        if len(request.text) != 64 or not all(c in '01' for c in request.text):
+            raise ValueError("Input must be exactly 64 binary bits (0s and 1s only)")
+
+        if not request.key:
+            raise HTTPException(status_code=400, detail="Key is required for decryption")
+
+        if len(request.key) != 64 or not all(c in '01' for c in request.key):
+            raise ValueError("Key must be exactly 64 binary bits (0s and 1s only)")
+
         result = des_decrypt_service(request.text, request.key)
         return {
             "decrypted_text": result["plaintext"],
