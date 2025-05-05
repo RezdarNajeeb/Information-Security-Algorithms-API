@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import caesar, mono
+from routers import caesar, mono, des
 
 app = FastAPI(title="Encryption API", description="API for encryption and decryption algorithms")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 # Include routers
 app.include_router(caesar.router, prefix="/caesar", tags=["Caesar Cipher"])
 app.include_router(mono.router, prefix="/mono", tags=["Monoalphabetic Cipher"])
+app.include_router(des.router, prefix="/des", tags=["DES Encryption"])
 
 @app.get("/")
 def home():
