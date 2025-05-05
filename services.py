@@ -1,48 +1,29 @@
 import random
 from typing import Dict, List
 
-chars = list(chr(i) for i in range(256) if chr(i).isprintable())
+# Set a fixed seed for deterministic behavior
+FIXED_SEED = 42
 
 
-def caesar_encrypt(text: str, shift: int) -> str:
-    return ''.join(chars[(chars.index(c) + shift) % len(chars)] if c in chars else c for c in text)
+# ----------------- Key Preparation Functions -----------------
+
+def generate_master_key():
+    """Generate a deterministic 64-bit key using a fixed seed."""
+    # Set seed for reproducible results
+    random.seed(FIXED_SEED)
+    key = ''.join([str(random.randint(0, 1)) for _ in range(64)])
+    # Reset seed to avoid affecting other random operations
+    random.seed()
+    return key
 
 
-def caesar_decrypt(text: str, shift: int) -> str:
-    return ''.join(chars[(chars.index(c) - shift) % len(chars)] if c in chars else c for c in text)
-
-
-def caesar_brute_force(text: str) -> dict:
-    return {shift: caesar_decrypt(text, shift) for shift in range(1, len(chars))}
-
-
-def generate_mono_key() -> str:
-    shuffled = chars.copy()
-    random.shuffle(shuffled)
-    return ''.join(shuffled)
-
-
-def mono_encrypt(text: str, key: str) -> str:
-    mapping = dict(zip(chars, key))
-    return ''.join(mapping[c] if c in mapping else c for c in text)
-
-
-def mono_decrypt(text: str, key: str) -> str:
-    reverse_mapping = dict(zip(key, chars))
-    return ''.join(reverse_mapping[c] if c in reverse_mapping else c for c in text)
-
-
-# DES Service Functions
-def generate_des_key() -> str:
-    """Generate a random 64-bit key as a string of 0s and 1s."""
-    return ''.join([str(random.randint(0, 1)) for _ in range(64)])
-
-
-def remove_parity_bits(key: str) -> str:
+def remove_parity_bits(key):
     """Remove the parity bits at positions 8, 16, 24, etc."""
     parity_positions = [8, 16, 24, 32, 40, 48, 56, 64]
+    # Adjust positions for 0-indexing
     adjusted_positions = [pos - 1 for pos in parity_positions]
 
+    # Create a new key without parity bits
     key_without_parity = ''
     for i in range(len(key)):
         if i not in adjusted_positions:
@@ -51,30 +32,36 @@ def remove_parity_bits(key: str) -> str:
     return key_without_parity
 
 
-def split_key(key: str) -> tuple:
+def split_key(key):
     """Split the 56-bit key into two 28-bit halves."""
     c = key[:28]
     d = key[28:]
     return c, d
 
 
-def left_rotate(bits: str, n: int) -> str:
+def left_rotate(bits, n):
     """Perform a left circular shift on the bits by n positions."""
     return bits[n:] + bits[:n]
 
 
-def apply_pc2(c: str, d: str) -> str:
-    """Apply Permutation Choice 2 to get a 48-bit subkey."""
+def apply_pc2(c, d):
+    """Apply Permutation Choice 2 to get a 48-bit subkey using a fixed permutation table."""
     combined = c + d
-    ignore_positions = [9, 18, 22, 25, 35, 38, 43, 54]
 
-    all_positions = list(range(1, 57))
-    valid_positions = [pos for pos in all_positions if pos not in ignore_positions]
+    # Fixed PC-2 table (standard DES PC-2)
+    pc2_table = [
+        14, 17, 11, 24, 1, 5, 3, 28,
+        15, 6, 21, 10, 23, 19, 12, 4,
+        26, 8, 16, 7, 27, 20, 13, 2,
+        41, 52, 31, 37, 47, 55, 30, 40,
+        51, 45, 33, 48, 44, 49, 39, 56,
+        34, 53, 46, 42, 50, 36, 29, 32
+    ]
 
-    random.shuffle(valid_positions)
-    pc2_table = valid_positions[:48]
+    # Adjust positions for 0-indexing
     pc2_adjusted = [pos - 1 for pos in pc2_table]
 
+    # Apply permutation
     subkey = ''
     for pos in pc2_adjusted:
         subkey += combined[pos]
@@ -82,27 +69,34 @@ def apply_pc2(c: str, d: str) -> str:
     return subkey
 
 
-def generate_subkeys(master_key: str) -> List[str]:
+def generate_subkeys(master_key):
     """Generate 16 subkeys from the master key."""
+    # Remove parity bits
     key_56bit = remove_parity_bits(master_key)
+
+    # Split the key
     c, d = split_key(key_56bit)
 
+    # Define rotation schedule
     rotation_schedule = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1]
 
     subkeys = []
     for round_num in range(16):
+        # Perform rotation based on the schedule
         rotations = rotation_schedule[round_num]
         c = left_rotate(c, rotations)
         d = left_rotate(d, rotations)
 
+        # Apply PC-2 to get the subkey for this round
         subkey = apply_pc2(c, d)
         subkeys.append(subkey)
 
     return subkeys
 
 
-# ASCII Conversion Functions
-def ascii_to_binary(text: str) -> str:
+# ----------------- ASCII Conversion Functions -----------------
+
+def ascii_to_binary(text):
     """Convert ASCII text to binary representation."""
     binary = ''
     for char in text:
@@ -110,7 +104,7 @@ def ascii_to_binary(text: str) -> str:
     return binary
 
 
-def binary_to_ascii(binary: str) -> str:
+def binary_to_ascii(binary):
     """Convert binary representation back to ASCII text."""
     text = ''
     for i in range(0, len(binary), 8):
@@ -119,8 +113,9 @@ def binary_to_ascii(binary: str) -> str:
     return text
 
 
-# DES Encryption Functions
-def apply_initial_permutation(message: str) -> str:
+# ----------------- Encryption Functions -----------------
+
+def apply_initial_permutation(message):
     """Apply the Initial Permutation (IP) to the 64-bit message."""
     ip_table = [
         58, 50, 42, 34, 26, 18, 10, 2,
@@ -133,8 +128,10 @@ def apply_initial_permutation(message: str) -> str:
         63, 55, 47, 39, 31, 23, 15, 7
     ]
 
+    # Adjust positions for 0-indexing
     ip_adjusted = [pos - 1 for pos in ip_table]
 
+    # Apply permutation
     permuted = ''
     for pos in ip_adjusted:
         permuted += message[pos]
@@ -142,15 +139,16 @@ def apply_initial_permutation(message: str) -> str:
     return permuted
 
 
-def split_message(message: str) -> tuple:
+def split_message(message):
     """Split the 64-bit message into two 32-bit halves."""
     l = message[:32]
     r = message[32:]
     return l, r
 
 
-def expansion_function(r_block: str) -> str:
+def expansion_function(r_block):
     """Expand the 32-bit R block to 48 bits using the E-box."""
+    # E-box table
     e_box = [
         32, 1, 2, 3, 4, 5,
         4, 5, 6, 7, 8, 9,
@@ -162,8 +160,10 @@ def expansion_function(r_block: str) -> str:
         28, 29, 30, 31, 32, 1
     ]
 
+    # Adjust positions for 0-indexing
     e_box_adjusted = [pos - 1 for pos in e_box]
 
+    # Apply expansion
     expanded = ''
     for pos in e_box_adjusted:
         expanded += r_block[pos]
@@ -171,7 +171,7 @@ def expansion_function(r_block: str) -> str:
     return expanded
 
 
-def xor(bits1: str, bits2: str) -> str:
+def xor(bits1, bits2):
     """Perform bitwise XOR between two bit strings."""
     result = ''
     for b1, b2 in zip(bits1, bits2):
@@ -179,8 +179,9 @@ def xor(bits1: str, bits2: str) -> str:
     return result
 
 
-def apply_sbox(bits: str) -> str:
+def apply_sbox(bits):
     """Apply the 8 S-boxes to transform 48 bits to 32 bits."""
+    # S-box tables
     s_boxes = [
         # S1
         [
@@ -240,21 +241,29 @@ def apply_sbox(bits: str) -> str:
         ]
     ]
 
+    # Divide the 48-bit input into 8 groups of 6 bits
     bit_groups = [bits[i:i + 6] for i in range(0, 48, 6)]
 
+    # Process each group through corresponding S-box
     output = ''
     for i, group in enumerate(bit_groups):
+        # First and last bits determine the row
         row = int(group[0] + group[5], 2)
+        # Middle 4 bits determine the column
         col = int(group[1:5], 2)
 
+        # Get the value from the S-box
         value = s_boxes[i][row][col]
+
+        # Convert to 4-bit binary and add to output
         output += format(value, '04b')
 
     return output
 
 
-def apply_pbox(bits: str) -> str:
+def apply_pbox(bits):
     """Apply the P-box permutation to the 32-bit input."""
+    # P-box table
     p_box = [
         16, 7, 20, 21, 29, 12, 28, 17,
         1, 15, 23, 26, 5, 18, 31, 10,
@@ -262,8 +271,10 @@ def apply_pbox(bits: str) -> str:
         19, 13, 30, 6, 22, 11, 4, 25
     ]
 
+    # Adjust positions for 0-indexing
     p_box_adjusted = [pos - 1 for pos in p_box]
 
+    # Apply permutation
     permuted = ''
     for pos in p_box_adjusted:
         permuted += bits[pos]
@@ -271,7 +282,7 @@ def apply_pbox(bits: str) -> str:
     return permuted
 
 
-def apply_final_permutation(message: str) -> str:
+def apply_final_permutation(message):
     """Apply the Final Permutation (FP) to the 64-bit message."""
     fp_table = [
         40, 8, 48, 16, 56, 24, 64, 32,
@@ -284,8 +295,10 @@ def apply_final_permutation(message: str) -> str:
         33, 1, 41, 9, 49, 17, 57, 25
     ]
 
+    # Adjust positions for 0-indexing
     fp_adjusted = [pos - 1 for pos in fp_table]
 
+    # Apply permutation
     permuted = ''
     for pos in fp_adjusted:
         permuted += message[pos]
@@ -293,46 +306,68 @@ def apply_final_permutation(message: str) -> str:
     return permuted
 
 
-def f_function(r_block: str, subkey: str) -> str:
+def f_function(r_block, subkey):
     """Implement the F function of the Feistel network."""
+    # 1. Expansion: Expand R to 48 bits
     expanded = expansion_function(r_block)
+
+    # 2. Key mixing: XOR with the subkey
     mixed = xor(expanded, subkey)
+
+    # 3. Substitution: Apply S-boxes
     substituted = apply_sbox(mixed)
+
+    # 4. Permutation: Apply P-box
     permuted = apply_pbox(substituted)
 
     return permuted
 
 
-def des_core_encrypt(message: str, subkeys: List[str]) -> str:
+def des_core_encrypt(message, subkeys):
     """Encrypt a 64-bit message using DES with the given subkeys."""
+    # Initial permutation
     message = apply_initial_permutation(message)
+
+    # Split into left and right halves
     left, right = split_message(message)
 
+    # 16 rounds of the Feistel network
     for i in range(16):
+        # Save the current right half
         prev_right = right
+
+        # Apply the F function to the right half
         f_result = f_function(right, subkeys[i])
+
+        # XOR the left half with the result of the F function
         right = xor(left, f_result)
+
+        # The new left half is the previous right half
         left = prev_right
 
+    # Swap the final left and right halves
     combined = right + left
+
+    # Apply the final permutation
     ciphertext = apply_final_permutation(combined)
 
     return ciphertext
 
 
-# Main DES Service Functions
-def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
+# ----------------- Service API Functions -----------------
+
+def des_encrypt_service(text, key=None):
     """Encrypt text using DES with binary input."""
-    # Validate input text is exactly 64 bits
+    # Validate input text length
     if len(text) != 64 or not all(c in '01' for c in text):
         raise ValueError("Text must be exactly 64 binary bits (0s and 1s only)")
 
-    # Validate key length
-    if key and len(key) != 64:
-        raise ValueError("Key must be exactly 64 bits (characters of 0s and 1s)")
+    # Use provided key or generate new one with fixed seed
+    master_key = key if key else generate_master_key()
 
-    # Use provided key or generate new one
-    master_key = key if key else generate_des_key()
+    # Validate key length
+    if len(master_key) != 64 or not all(c in '01' for c in master_key):
+        raise ValueError("Key must be exactly 64 bits (0s and 1s only)")
 
     # Generate subkeys
     subkeys = generate_subkeys(master_key)
@@ -340,8 +375,7 @@ def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
     # Encrypt
     ciphertext_binary = des_core_encrypt(text, subkeys)
 
-    # For display purposes, we still convert to ASCII, but we make it clear this is
-    # just a representation - the actual output is binary
+    # For display purposes, we still convert to ASCII
     try:
         ciphertext_ascii = binary_to_ascii(ciphertext_binary)
     except:
@@ -354,15 +388,14 @@ def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
     }
 
 
-def des_decrypt_service(ciphertext: str, key: str) -> Dict[str, str]:
+def des_decrypt_service(ciphertext, key):
     """Decrypt binary ciphertext using DES."""
-    # Validate key length
-    if len(key) != 64 or not all(c in '01' for c in key):
-        raise ValueError("Key must be exactly 64 bits (0s and 1s only)")
-
-    # Validate input ciphertext is exactly 64 bits
+    # Validate input
     if len(ciphertext) != 64 or not all(c in '01' for c in ciphertext):
         raise ValueError("Ciphertext must be exactly 64 binary bits (0s and 1s only)")
+
+    if len(key) != 64 or not all(c in '01' for c in key):
+        raise ValueError("Key must be exactly 64 bits (0s and 1s only)")
 
     # Generate subkeys
     subkeys = generate_subkeys(key)
@@ -370,7 +403,7 @@ def des_decrypt_service(ciphertext: str, key: str) -> Dict[str, str]:
     # Decrypt process using reversed subkeys
     plaintext_binary = des_core_encrypt(ciphertext, subkeys[::-1])
 
-    # For display purposes, we convert to ASCII
+    # Convert decrypted binary back to ASCII
     try:
         plaintext_ascii = binary_to_ascii(plaintext_binary)
     except:
