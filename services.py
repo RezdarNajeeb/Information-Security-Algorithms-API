@@ -345,13 +345,11 @@ def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
     # Convert to ASCII for display
     try:
         ciphertext_ascii = binary_to_ascii(ciphertext_binary)
-        # Handle non-printable characters
-        ciphertext_display = ''.join(char for char in ciphertext_ascii)
     except:
-        ciphertext_display = "[Binary data - cannot display as ASCII]"
+        ciphertext_ascii = "[Binary data - cannot display as ASCII]"
 
     return {
-        "ciphertext": ciphertext_display,
+        "ciphertext": ciphertext_ascii,
         "binary_ciphertext": ciphertext_binary,
         "key": master_key
     }
