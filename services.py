@@ -323,15 +323,19 @@ def des_core_encrypt(message: str, subkeys: List[str]) -> str:
 # Main DES Service Functions
 def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
     """Encrypt text using DES."""
-    # Validate input
-    if len(text) != 8:
-        raise ValueError("Text must be exactly 8 characters long")
+    # Validate input text length
+    if len(text) == 8:
+        # ASCII representation (8 characters)
+        plaintext_binary = ascii_to_binary(text)
+    elif len(text) == 64 and all(c in '01' for c in text):
+        # Binary representation (64 bits)
+        plaintext_binary = text
+    else:
+        raise ValueError("Text must be exactly 8 characters (ASCII) or 64 bits (binary)")
 
+    # Validate key length
     if key and len(key) != 64:
         raise ValueError("Key must be exactly 64 bits (characters of 0s and 1s)")
-
-    # Convert text to binary
-    plaintext_binary = ascii_to_binary(text)
 
     # Use provided key or generate new one
     master_key = key if key else generate_des_key()
@@ -342,7 +346,7 @@ def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
     # Encrypt
     ciphertext_binary = des_core_encrypt(plaintext_binary, subkeys)
 
-    # Convert to ASCII for display
+    # Convert binary ciphertext to ASCII for display
     try:
         ciphertext_ascii = binary_to_ascii(ciphertext_binary)
     except:
@@ -354,31 +358,33 @@ def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
         "key": master_key
     }
 
-
 def des_decrypt_service(ciphertext: str, key: str) -> Dict[str, str]:
     """Decrypt text using DES."""
-    # Validate key
+    # Validate key length
     if len(key) != 64:
         raise ValueError("Key must be exactly 64 bits")
 
-    # Handle different input formats
+    # Validate input ciphertext length
     if len(ciphertext) == 64 and all(c in '01' for c in ciphertext):
-        # Binary input
+        # Binary representation
         ciphertext_binary = ciphertext
-    else:
-        # ASCII input - convert to binary
-        if len(ciphertext) != 8:
-            raise ValueError("Ciphertext must be exactly 8 characters or 64 bits")
+    elif len(ciphertext) == 8:
+        # ASCII representation (8 characters)
         ciphertext_binary = ascii_to_binary(ciphertext)
+    else:
+        raise ValueError("Ciphertext must be exactly 8 characters (ASCII) or 64 bits (binary)")
 
     # Generate subkeys
     subkeys = generate_subkeys(key)
 
-    # Decrypt (use reversed subkeys)
+    # Decrypt process using reversed subkeys
     plaintext_binary = des_core_encrypt(ciphertext_binary, subkeys[::-1])
 
-    # Convert to ASCII
-    plaintext_ascii = binary_to_ascii(plaintext_binary)
+    # Convert decrypted binary back to ASCII
+    try:
+        plaintext_ascii = binary_to_ascii(plaintext_binary)
+    except:
+        plaintext_ascii = "[Binary data - cannot display as ASCII]"
 
     return {
         "plaintext": plaintext_ascii,
