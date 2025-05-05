@@ -3,23 +3,29 @@ from typing import Dict, List
 
 chars = list(chr(i) for i in range(256) if chr(i).isprintable())
 
+
 def caesar_encrypt(text: str, shift: int) -> str:
     return ''.join(chars[(chars.index(c) + shift) % len(chars)] if c in chars else c for c in text)
+
 
 def caesar_decrypt(text: str, shift: int) -> str:
     return ''.join(chars[(chars.index(c) - shift) % len(chars)] if c in chars else c for c in text)
 
+
 def caesar_brute_force(text: str) -> dict:
     return {shift: caesar_decrypt(text, shift) for shift in range(1, len(chars))}
+
 
 def generate_mono_key() -> str:
     shuffled = chars.copy()
     random.shuffle(shuffled)
     return ''.join(shuffled)
 
+
 def mono_encrypt(text: str, key: str) -> str:
     mapping = dict(zip(chars, key))
     return ''.join(mapping[c] if c in mapping else c for c in text)
+
 
 def mono_decrypt(text: str, key: str) -> str:
     reverse_mapping = dict(zip(key, chars))
@@ -340,10 +346,7 @@ def des_encrypt_service(text: str, key: str) -> Dict[str, str]:
     try:
         ciphertext_ascii = binary_to_ascii(ciphertext_binary)
         # Handle non-printable characters
-        ciphertext_display = ''.join(
-            char if char.isprintable() else f'[NP:{ord(char):02x}]'
-            for char in ciphertext_ascii
-        )
+        ciphertext_display = ''.join(char for char in ciphertext_ascii)
     except:
         ciphertext_display = "[Binary data - cannot display as ASCII]"
 
